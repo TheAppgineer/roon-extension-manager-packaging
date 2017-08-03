@@ -1,4 +1,4 @@
 curl.exe
 nssm.exe
-setup-win64.exe
+setup-win64*.exe
 setup.7z
