@@ -1,5 +1,0 @@
-;!@Install@!UTF-8!
-Title="Roon Extension Manager"
-BeginPrompt="Do you want to install Roon Extension Manager?"
-RunProgram="setup.bat 32"
-;!@InstallEnd@!

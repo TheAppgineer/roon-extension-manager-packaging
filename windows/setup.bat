@@ -23,22 +23,7 @@ set CURL=curl.exe --cacert cacert.pem --progress-bar --location --output
 set MSIEXEC=msiexec.exe /passive /norestart /package
 set GIT_OPTIONS="/SILENT /NORESTART"
 
-rem OS dependent variables
-if "%1" == "XP" (
-    set NODE_VERSION=5.12.0
-    set GIT_VERSION=2.10.0
-) else (
-    set NODE_VERSION=6.11.1
-    set GIT_VERSION=2.13.3
-)
-
-if "%1" == "64" (
-    set NODE=node-v%NODE_VERSION%-x64.msi
-    set GIT=Git-%GIT_VERSION%-64-bit.exe
-) else (
-    set NODE=node-v%NODE_VERSION%-x86.msi
-    set GIT=Git-%GIT_VERSION%-32-bit.exe
-)
+call os-vars.bat
 
 set NODE_URL=https://nodejs.org/download/release/v%NODE_VERSION%/%NODE%
 set GIT_URL=https://github.com/git-for-windows/git/releases/download/v%GIT_VERSION%.windows.1/%GIT%
@@ -50,22 +35,22 @@ if not exist "%DL_DIR%" (
 
 rem Download installers
 if not exist "%DL_DIR%\%NODE%" (
-    call :action "Downloading Node.js..."   "%CURL% %DL_DIR%\%NODE% %NODE_URL%"
+    call :action "Downloading %NODE%..."    "%CURL% %DL_DIR%\%NODE% %NODE_URL%"
     if %ERRORLEVEL% NEQ 0 goto :error
 )
 
 if not exist "%DL_DIR%\%GIT%" (
-    call :action "Downloading git..."       "%CURL% %DL_DIR%\%GIT% %GIT_URL%"
+    call :action "Downloading %GIT%..."     "%CURL% %DL_DIR%\%GIT% %GIT_URL%"
     if %ERRORLEVEL% NEQ 0 goto :error
 )
 
 rem Install prerequisites
-if not exist "%ProgramFiles%\nodejs\npm" (
+if not exist "%INSTALL_DIR%\nodejs\npm" (
     call :action "Installing Node.js..."    "%MSIEXEC% %DL_DIR%\%NODE%"             "sync"
     if %ERRORLEVEL% NEQ 0 goto :error
 )
 
-if not exist "%ProgramFiles%\Git\cmd\git.exe" (
+if not exist "%INSTALL_DIR%\Git\cmd\git.exe" (
     call :action "Installing git..."        "%DL_DIR%\%GIT% %GIT_OPTIONS%"          "sync"
     if %ERRORLEVEL% NEQ 0 goto :error
 )
@@ -77,7 +62,7 @@ if not exist "%EXT_DIR%" (
 
 git --version > nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    set Path=%Path%;%ProgramFiles%\nodejs;%ProgramFiles%\Git\cmd;%AppData%\npm
+    set "Path=%Path%;%INSTALL_DIR%\nodejs;%INSTALL_DIR%\Git\cmd;%AppData%\npm"
 )
 
 if "%NPM_CONFIG_PREFIX%" == "" (
@@ -105,7 +90,7 @@ if %ERRORLEVEL% NEQ 0 (
     nssm set %NAME% AppDirectory "%NPM_CONFIG_PREFIX%"
     nssm set %NAME% AppStdout nul
     nssm set %NAME% AppStderr "%NPM_CONFIG_PREFIX%\%NAME%.log"
-    nssm set %NAME% AppEnvironmentExtra APPDATA="%AppData%" PATH="%Path%"
+    nssm set %NAME% AppEnvironmentExtra APPDATA="%AppData%" "PATH=%Path%"
 )
 
 rem Start service

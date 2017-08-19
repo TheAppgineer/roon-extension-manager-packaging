@@ -1,5 +1,5 @@
 ;!@Install@!UTF-8!
-Title="Roon Extension Manager"
+Title="Roon Extension Manager Setup v0.1.1"
 BeginPrompt="Do you want to install Roon Extension Manager?"
-RunProgram="setup.bat XP"
+RunProgram="setup.bat"
 ;!@InstallEnd@!
