@@ -1,0 +1,12 @@
+[Unit]
+Description=Roon Extension Manager
+After=network.target
+
+[Service]
+User=node
+Restart=always
+WorkingDirectory=/srv/node/roon-extensions/lib
+ExecStart=/srv/node/roon-extensions/lib/roon-extension-manager.sh
+
+[Install]
+WantedBy=multi-user.target
