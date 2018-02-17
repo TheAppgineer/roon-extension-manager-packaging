@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2017 The Appgineer
+# Copyright 2017, 2018 The Appgineer
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +15,22 @@
 # limitations under the License.
 
 # Generic variables
+VERSION=0.2.0
 NAME=roon-extension-manager
 USR=$(env | grep SUDO_USER | cut -d= -f 2)
+
+echo $NAME setup script - version $VERSION
+echo
+
+if [ "$1" == "--version" ]; then
+    exit 0
+fi
 
 if [ -z "$USR" ]; then
     if [ $USER = "root" ]; then
         USR=root
     else
-        echo "This script needs to run with root previleges" && exit 1
+        echo "This script needs to run with root privileges" && exit 1
     fi
 fi
 
@@ -48,7 +56,13 @@ echo "    OK"
 
 # Configure npm
 if [ ! -d "$EXT_DIR" ]; then
-    mkdir "$EXT_DIR"
+    mkdir -p "$EXT_DIR"/{etc,lib}
+    chown -R $USR:$GRP $EXT_DIR
+fi
+
+if [ -f "$USR_HOME/.npmrc" ]; then
+    # Hide user settings
+    mv $USR_HOME/.npmrc $USR_HOME/.npmrc.bak
 fi
 
 PREFIX=$(npm config get prefix)
@@ -61,25 +75,31 @@ if [ "$PREFIX" != "$EXT_DIR" ]; then
         mkdir "$PREFIX/etc"
     fi
     mv npmrc $PREFIX/etc/
+    if [ $? -gt 0 ]; then
+        exit 1
+    fi
 fi
 
 # Install extensions
 echo Installing extensions...
 
-npm install -g https://github.com/TheAppgineer/$NAME.git
-npm install -g https://github.com/TheAppgineer/$NAME-updater.git
+su -c "npm install -g https://github.com/TheAppgineer/$NAME.git" $USR
+su -c "npm install -g https://github.com/TheAppgineer/$NAME-updater.git" $USR
 
 # Download shell script
 wget https://raw.githubusercontent.com/TheAppgineer/$NAME-packaging/master/linux/$NAME.sh
 
 chmod +x $NAME.sh
 mv $NAME.sh $EXT_DIR/lib/
-chown -R $USR:$GRP $EXT_DIR
+if [ $? -gt 0 ]; then
+    exit 1
+fi
 
-echo Setting up service...
+if [ ! -f "/etc/systemd/system/$NAME.service" ]; then
+    echo Setting up service...
 
-# Create service file
-cat << EOF > $NAME.service
+    # Create service file
+    cat << EOF > $NAME.service
 [Unit]
 Description=Roon Extension Manager
 After=network.target
@@ -95,9 +115,14 @@ Environment="PATH=$PATH"
 WantedBy=multi-user.target
 EOF
 
-# Configure service
-mv $NAME.service /etc/systemd/system/
-systemctl daemon-reload
+    # Configure service
+    mv $NAME.service /etc/systemd/system/
+    if [ $? -gt 0 ]; then
+        exit 1
+    fi
+    systemctl daemon-reload
+fi
+
 systemctl enable $NAME
 
 # Start service
