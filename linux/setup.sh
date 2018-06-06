@@ -15,23 +15,37 @@
 # limitations under the License.
 
 # Generic variables
-VERSION=0.2.0
+VERSION=0.2.1
 NAME=roon-extension-manager
 USR=$(env | grep SUDO_USER | cut -d= -f 2)
 
 echo $NAME setup script - version $VERSION
 echo
 
-if [ "$1" == "--version" ]; then
+if [ "$1" = "--version" ]; then
     exit 0
 fi
 
 if [ -z "$USR" ]; then
-    if [ $USER = "root" ]; then
-        USR=root
-    else
-        echo "This script needs to run with root privileges" && exit 1
+    USR=`whoami`
+
+    if [ "$USR" != "root" ]; then
+        if [ "$SVC" = "" ]; then
+            echo "Root privileges are required to setup the service!"
+            echo "Do you want to install without service setup? (y/N)"
+            read ANSWER
+
+            if [ "$ANSWER" = "y" ]; then
+                SVC=0
+            else
+                exit 0
+            fi
+        fi
     fi
+fi
+
+if [ "$SVC" = "" ]; then
+    SVC=1
 fi
 
 USR_HOME=$(getent passwd "$USR" | cut -d: -f6)
@@ -41,7 +55,11 @@ EXT_DIR=$USR_HOME/.RoonExtensions
 # Check prerequisites
 echo Checking prerequisites...
 
-declare -a prereq=("systemctl" "git" "npm" "node")
+if [ "$SVC" = "1" ]; then
+    declare -a prereq=("systemctl" "wget" "git" "npm" "node")
+else
+    declare -a prereq=("wget" "git" "npm" "node")
+fi
 
 ## now loop through the above array
 for i in "${prereq[@]}"
@@ -71,10 +89,16 @@ if [ "$PREFIX" != "$EXT_DIR" ]; then
     echo Configuring npm @ $EXT_DIR...
 
     echo prefix=$EXT_DIR > npmrc
-    if [ ! -d "$PREFIX/etc" ]; then
-        mkdir "$PREFIX/etc"
+
+    if [ "$SVC" = "1" ]; then
+        if [ ! -d "$PREFIX/etc" ]; then
+            mkdir "$PREFIX/etc"
+        fi
+        mv npmrc $PREFIX/etc/
+    else
+        mv npmrc "$USR_HOME/.npmrc"
     fi
-    mv npmrc $PREFIX/etc/
+
     if [ $? -gt 0 ]; then
         exit 1
     fi
@@ -83,8 +107,13 @@ fi
 # Install extensions
 echo Installing extensions...
 
-su -c "npm install -g https://github.com/TheAppgineer/$NAME.git" $USR
-su -c "npm install -g https://github.com/TheAppgineer/$NAME-updater.git" $USR
+if [ "$SVC" = "1" ]; then
+    su -c "npm install -g https://github.com/TheAppgineer/$NAME.git" $USR
+    su -c "npm install -g https://github.com/TheAppgineer/$NAME-updater.git" $USR
+else
+    npm install -g https://github.com/TheAppgineer/$NAME.git
+    npm install -g https://github.com/TheAppgineer/$NAME-updater.git
+fi
 
 # Download shell script
 wget https://raw.githubusercontent.com/TheAppgineer/$NAME-packaging/master/linux/$NAME.sh
@@ -95,11 +124,12 @@ if [ $? -gt 0 ]; then
     exit 1
 fi
 
-if [ ! -f "/etc/systemd/system/$NAME.service" ]; then
-    echo Setting up service...
+if [ "$SVC" = "1" ]; then
+    if [ ! -f "/etc/systemd/system/$NAME.service" ]; then
+        echo Setting up service...
 
-    # Create service file
-    cat << EOF > $NAME.service
+        # Create service file
+        cat << EOF > $NAME.service
 [Unit]
 Description=Roon Extension Manager
 After=network.target
@@ -115,18 +145,19 @@ Environment="PATH=$PATH"
 WantedBy=multi-user.target
 EOF
 
-    # Configure service
-    mv $NAME.service /etc/systemd/system/
-    if [ $? -gt 0 ]; then
-        exit 1
+        # Configure service
+        mv $NAME.service /etc/systemd/system/
+        if [ $? -gt 0 ]; then
+            exit 1
+        fi
+        systemctl daemon-reload
     fi
-    systemctl daemon-reload
+
+    systemctl enable $NAME
+
+    # Start service
+    systemctl start $NAME
 fi
-
-systemctl enable $NAME
-
-# Start service
-systemctl start $NAME
 
 echo
 echo "Roon Extension Manager installed successfully!"
