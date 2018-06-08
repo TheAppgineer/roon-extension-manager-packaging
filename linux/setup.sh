@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Generic variables
-VERSION=0.2.1
+VERSION=0.3.0
 NAME=roon-extension-manager
 USR=$(env | grep SUDO_USER | cut -d= -f 2)
 
