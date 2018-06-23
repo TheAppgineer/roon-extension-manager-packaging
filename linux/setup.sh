@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Generic variables
-VERSION=0.3.0
+VERSION=0.3.1
 NAME=roon-extension-manager
 USR=$(env | grep SUDO_USER | cut -d= -f 2)
 
@@ -51,6 +51,21 @@ fi
 USR_HOME=$(getent passwd "$USR" | cut -d: -f6)
 GRP=$(getent passwd "$USR" | cut -d: -f4)
 EXT_DIR=$USR_HOME/.RoonExtensions
+
+if [ "$1" = "--uninstall" ]; then
+    if [ "$SVC" = "1" ]; then
+        # Remove service
+        systemctl stop $NAME
+        systemctl disable $NAME
+        rm /etc/systemd/system/$NAME.service
+    fi
+
+    # Remove files
+    rm `npm config ls -l | grep ^globalconfig | awk '{split($0,a,"\""); print a[2]}'`
+    rm -rf "$EXT_DIR"
+
+    exit 0
+fi
 
 # Check prerequisites
 echo Checking prerequisites...
