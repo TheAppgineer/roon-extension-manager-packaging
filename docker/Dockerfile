@@ -2,7 +2,7 @@
 FROM node:8.10.0-alpine
 
 RUN apk update && apk upgrade && \
-    apk add --no-cache bash git openssh wget
+    apk add --no-cache bash git openssh tzdata wget
 
 WORKDIR /root
 RUN wget https://raw.githubusercontent.com/TheAppgineer/roon-extension-manager-packaging/master/linux/setup.sh
