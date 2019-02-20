@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2017, 2018 The Appgineer
+# Copyright 2017, 2018, 2019 The Appgineer
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
 # limitations under the License.
 
 # Generic variables
-VERSION=0.3.1
+VERSION=0.5.0
 NAME=roon-extension-manager
 USR=$(env | grep SUDO_USER | cut -d= -f 2)
+MIN_NODE_VERSION=6
 
 echo $NAME setup script - version $VERSION
 echo
@@ -69,27 +70,41 @@ fi
 
 # Check prerequisites
 echo Checking prerequisites...
+declare -a prereq=("git" "npm" "node")
 
 if [ "$SVC" = "1" ]; then
-    declare -a prereq=("systemctl" "wget" "git" "npm" "node")
-else
-    declare -a prereq=("wget" "git" "npm" "node")
+    prereq+=("systemctl")
 fi
 
-## now loop through the above array
+if [ ! -f "$NAME.sh" ]; then
+    prereq+=("wget")
+fi
+
+## Now loop through the above array
 for i in "${prereq[@]}"
 do
-    "$i" --version > /dev/null 2>&1
+    VERSION=$("$i" --version 2> /dev/null)
     if [ $? -gt 0 ]; then
         echo Please install "$i"
         exit 1
+    elif [ "$i" = "node" ]; then
+        # Perform minimum version check for node
+        if [ "${VERSION:2:1}" = "." ]; then
+            VERSION=${VERSION:1:1}
+        else
+            VERSION=${VERSION:1:2}
+        fi
+        if [ "$VERSION" -lt "$MIN_NODE_VERSION" ]; then
+            echo Please install "$i" version "$MIN_NODE_VERSION".x or higher
+            exit 1
+        fi
     fi
 done
 echo "    OK"
 
 # Configure npm
 if [ ! -d "$EXT_DIR" ]; then
-    mkdir -p "$EXT_DIR"/{etc,lib}
+    mkdir -p "$EXT_DIR"/{etc,lib,bin}
     chown -R $USR:$GRP $EXT_DIR
 fi
 
@@ -130,11 +145,13 @@ else
     npm install -g https://github.com/TheAppgineer/$NAME-updater.git
 fi
 
-# Download shell script
-wget https://raw.githubusercontent.com/TheAppgineer/$NAME-packaging/master/linux/$NAME.sh
+if [ ! -f "$NAME.sh" ]; then
+    # Download shell script
+    wget https://raw.githubusercontent.com/TheAppgineer/$NAME-packaging/master/linux/$NAME.sh
+fi
 
 chmod +x $NAME.sh
-mv $NAME.sh $EXT_DIR/lib/
+mv $NAME.sh $EXT_DIR/bin/
 if [ $? -gt 0 ]; then
     exit 1
 fi
@@ -153,7 +170,7 @@ After=network.target
 User=$USR
 Restart=always
 WorkingDirectory=$EXT_DIR/lib
-ExecStart=$EXT_DIR/lib/$NAME.sh
+ExecStart=$EXT_DIR/bin/$NAME.sh
 Environment="PATH=$PATH"
 
 [Install]

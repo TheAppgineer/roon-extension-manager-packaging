@@ -1,0 +1,6 @@
+{
+    "auto_update": "",
+    "log_mode": "child_nodes",
+    "npm_install": "",
+    "docker_install": "prio"
+}
