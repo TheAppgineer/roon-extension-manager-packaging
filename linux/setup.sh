@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Generic variables
-VERSION=0.5.0
+VERSION=0.5.1
 NAME=roon-extension-manager
 USR=$(env | grep SUDO_USER | cut -d= -f 2)
 MIN_NODE_VERSION=6
@@ -102,9 +102,10 @@ do
 done
 echo "    OK"
 
+mkdir -p "$EXT_DIR"/{etc,lib,bin}
+
 # Configure npm
 if [ ! -d "$EXT_DIR" ]; then
-    mkdir -p "$EXT_DIR"/{etc,lib,bin}
     chown -R $USR:$GRP $EXT_DIR
 fi
 
