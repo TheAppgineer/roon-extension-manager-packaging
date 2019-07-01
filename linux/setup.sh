@@ -15,10 +15,10 @@
 # limitations under the License.
 
 # Generic variables
-VERSION=0.5.1
+VERSION=0.5.2
 NAME=roon-extension-manager
 USR=$(env | grep SUDO_USER | cut -d= -f 2)
-MIN_NODE_VERSION=6
+MIN_NODE_VERSION=8
 
 echo $NAME setup script - version $VERSION
 echo
