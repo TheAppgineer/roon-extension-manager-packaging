@@ -1,6 +1,6 @@
 @echo off
 
-rem Copyright 2017 The Appgineer
+rem Copyright 2017, 2018, 2019 The Appgineer
 rem
 rem Licensed under the Apache License, Version 2.0 (the "License");
 rem you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@ rem distributed under the License is distributed on an "AS IS" BASIS,
 rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 rem See the License for the specific language governing permissions and
 rem limitations under the License.
+
+setlocal enabledelayedexpansion
 
 rem Generic variables
 set NAME=roon-extension-manager
@@ -33,28 +35,39 @@ if not exist "%DL_DIR%" (
     mkdir %DL_DIR%
 )
 
-rem Download installers
+nssm status %NAME% > nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo Stopping service...
+    nssm stop %NAME%
+    echo.
+)
+
+rem Install Node.js
+call :is_installed "%INSTALL_DIR%\nodejs\node.exe" %NODE_VERSION%
+if %ERRORLEVEL% EQU 0 goto :git
+
 if not exist "%DL_DIR%\%NODE%" (
     call :action "Downloading %NODE%..."    "%CURL% %DL_DIR%\%NODE% %NODE_URL%"
-    if %ERRORLEVEL% NEQ 0 goto :error
+    if !ERRORLEVEL! NEQ 0 goto :error
 )
+
+call :action "Installing Node.js..."    "%MSIEXEC% %DL_DIR%\%NODE%"             "sync"
+if %ERRORLEVEL% NEQ 0 goto :error
+
+:git
+rem Install Git
+call :is_installed "%INSTALL_DIR%\Git\cmd\git.exe" %GIT_VERSION%
+if %ERRORLEVEL% EQU 0 goto :configure
 
 if not exist "%DL_DIR%\%GIT%" (
     call :action "Downloading %GIT%..."     "%CURL% %DL_DIR%\%GIT% %GIT_URL%"
-    if %ERRORLEVEL% NEQ 0 goto :error
+    if !ERRORLEVEL! NEQ 0 goto :error
 )
 
-rem Install prerequisites
-if not exist "%INSTALL_DIR%\nodejs\npm" (
-    call :action "Installing Node.js..."    "%MSIEXEC% %DL_DIR%\%NODE%"             "sync"
-    if %ERRORLEVEL% NEQ 0 goto :error
-)
+call :action "Installing git..."        "%DL_DIR%\%GIT% %GIT_OPTIONS%"          "sync"
+if %ERRORLEVEL% NEQ 0 goto :error
 
-if not exist "%INSTALL_DIR%\Git\cmd\git.exe" (
-    call :action "Installing git..."        "%DL_DIR%\%GIT% %GIT_OPTIONS%"          "sync"
-    if %ERRORLEVEL% NEQ 0 goto :error
-)
-
+:configure
 rem Configure npm
 if not exist "%EXT_DIR%" (
     mkdir "%EXT_DIR%"
@@ -65,7 +78,8 @@ if %ERRORLEVEL% NEQ 0 (
     set "Path=%Path%;%INSTALL_DIR%\nodejs;%INSTALL_DIR%\Git\cmd;%AppData%\npm"
 )
 
-if "%NPM_CONFIG_PREFIX%" == "" (
+rem Set NPM_CONFIG_PREFIX
+if NOT "%NPM_CONFIG_PREFIX%" == "EXT_DIR" (
     echo Configuring npm...
     set NPM_CONFIG_PREFIX=%EXT_DIR:\=/%
     setx NPM_CONFIG_PREFIX "%EXT_DIR:\=/%" -m
@@ -109,6 +123,7 @@ rem Force execution to quit now that we reached the end of the "main" logic
 pause
 exit /B %ERRORLEVEL%
 
+rem Functions
 :action
 echo %~1
 
@@ -126,3 +141,22 @@ if %ERRORLEVEL% EQU 0 (
 echo.
 
 exit /b %ERRORLEVEL%
+
+:is_installed
+set "file=%~1"
+if not defined file goto :not_installed
+if not exist "%file%" goto :not_installed
+
+set "version="
+FOR /F "tokens=2 delims==" %%a in ('
+    wmic datafile where name^="%file:\=\\%" get Version /value
+') do set "version=%%a"
+
+call set replaced=%%version:%2=%%
+
+IF not "%replaced%"=="%version%" (
+    exit /b 0
+)
+
+:not_installed
+exit /b 1
