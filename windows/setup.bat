@@ -73,9 +73,15 @@ if not exist "%EXT_DIR%" (
     mkdir "%EXT_DIR%"
 )
 
+rem Update path for the active environment
 git --version > nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    set "Path=%Path%;%INSTALL_DIR%\nodejs;%INSTALL_DIR%\Git\cmd;%AppData%\npm"
+    set "Path=%Path%;%INSTALL_DIR%\Git\cmd"
+)
+
+node --version > nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    set "Path=%Path%;%INSTALL_DIR%\nodejs;%AppData%\npm"
 )
 
 rem Set NPM_CONFIG_PREFIX
@@ -83,6 +89,17 @@ if NOT "%NPM_CONFIG_PREFIX%" == "EXT_DIR" (
     echo Configuring npm...
     set NPM_CONFIG_PREFIX=%EXT_DIR:\=/%
     setx NPM_CONFIG_PREFIX "%EXT_DIR:\=/%" -m
+)
+
+rem Remove old installation
+if exist "%EXT_DIR%\node_modules\%NAME%" (
+    call :action "Removing old installation..." "npm uninstall -g %NAME%"
+    RMDIR /S /Q "%EXT_DIR%\node_modules\%NAME%"
+)
+
+if exist "%EXT_DIR%\node_modules\%NAME%-updater" (
+    call :action "Removing old installation..." "npm uninstall -g %NAME%-updater"
+    RMDIR /S /Q "%EXT_DIR%\node_modules\%NAME%-updater"
 )
 
 rem Install extension
