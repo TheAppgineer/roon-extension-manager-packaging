@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # Generic variables
-VERSION=0.5.2
+VERSION=0.5.5
 NAME=roon-extension-manager
 USR=$(env | grep SUDO_USER | cut -d= -f 2)
 MIN_NODE_VERSION=8
@@ -62,7 +62,7 @@ if [ "$1" = "--uninstall" ]; then
     fi
 
     # Remove files
-    rm `npm config ls -l | grep ^globalconfig | awk '{split($0,a,"\""); print a[2]}'`
+    rm "$USR_HOME/.npmrc"
     rm -rf "$EXT_DIR"
 
     exit 0
@@ -102,7 +102,7 @@ do
 done
 echo "    OK"
 
-mkdir -p "$EXT_DIR"/{etc,lib,bin}
+su -c "mkdir -p "$EXT_DIR"/{etc,lib,bin}" $USR
 
 # Configure npm
 if [ ! -d "$EXT_DIR" ]; then
@@ -119,16 +119,7 @@ PREFIX=$(npm config get prefix)
 if [ "$PREFIX" != "$EXT_DIR" ]; then
     echo Configuring npm @ $EXT_DIR...
 
-    echo prefix=$EXT_DIR > npmrc
-
-    if [ "$SVC" = "1" ]; then
-        if [ ! -d "$PREFIX/etc" ]; then
-            mkdir "$PREFIX/etc"
-        fi
-        mv npmrc $PREFIX/etc/
-    else
-        mv npmrc "$USR_HOME/.npmrc"
-    fi
+    echo prefix=$EXT_DIR > "$USR_HOME/.npmrc"
 
     if [ $? -gt 0 ]; then
         exit 1
@@ -138,12 +129,14 @@ fi
 # Install extensions
 echo Installing extensions...
 
-if [ "$SVC" = "1" ]; then
-    su -c "npm install -g https://github.com/TheAppgineer/$NAME.git" $USR
-    su -c "npm install -g https://github.com/TheAppgineer/$NAME-updater.git" $USR
-else
-    npm install -g https://github.com/TheAppgineer/$NAME.git
-    npm install -g https://github.com/TheAppgineer/$NAME-updater.git
+su -c "npm install -g https://github.com/TheAppgineer/$NAME.git" $USR
+if [ $? -gt 0 ]; then
+    exit 1
+fi
+
+su -c "npm install -g https://github.com/TheAppgineer/$NAME-updater.git" $USR
+if [ $? -gt 0 ]; then
+    exit 1
 fi
 
 if [ ! -f "$NAME.sh" ]; then
